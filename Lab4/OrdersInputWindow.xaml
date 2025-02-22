@@ -1,0 +1,34 @@
+﻿<Window x:Class="Lab4.OrdersInputWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Lab4"
+        mc:Ignorable="d"
+        Title="Введення даних" Height="360" Width="400" ResizeMode="NoResize">
+    <Grid>
+        <StackPanel Margin="10">
+            <TextBlock Text="Id клієнта" Margin="0,0,0,5"/>
+            <ComboBox SelectedValuePath="Content" Name="CustomerIdComboBox" Width="300" Margin="0,0,0,10"/>
+
+                <TextBlock Text="Товар" Margin="0,0,0,5"/>
+            <TextBox Name="ItemTextBox" Width="300" Margin="0,0,0,10"/>
+
+            <TextBlock Text="Дата" Margin="0,0,0,5"/>
+            <DatePicker Name="OrderDatePicker" Width="300" Margin="0,0,0,10"></DatePicker>
+            <TextBlock Text="Статус" Margin="0,0,0,5"/>
+            <ComboBox SelectedValuePath="Content" Name="StatusComboBox" Width="300" Margin="0,0,0,10">
+                <ComboBoxItem Content="Completed"/>
+                <ComboBoxItem Content="Cancelled"/>
+                <ComboBoxItem Content="Pending"/>
+            </ComboBox>
+            <TextBlock Text="Ціна" Margin="0,0,0,5"/>
+            <TextBox Name="TotalPriceTextBox" Width="300" Margin="0,0,0,10">
+            </TextBox>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <Button Content="Зберегти" Width="100" Height="30" Margin="10,0,10,0" Click="SaveButton_Click"/>
+                <Button Content="Скасувати" Width="100" Height="30" Click="CancelButton_Click"/>
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</Window>

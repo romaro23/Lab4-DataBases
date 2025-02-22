@@ -1,0 +1,76 @@
+﻿<Window x:Class="Lab4.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Lab4"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="450" Width="800">
+    <Grid>
+        <TabControl HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10">
+            <TabItem Header="Користувачі">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="35"></RowDefinition>
+                    </Grid.RowDefinitions>
+                    <Grid VerticalAlignment="Top">
+                        <DataGrid  IsReadOnly="True" Name="UsersGrid" AutoGenerateColumns="True" SelectionChanged="UsersGrid_SelectionChanged" />
+                    </Grid>
+                    <Grid Grid.Row="1">
+                        <Button Content="Додати" Width="100" Height="30" VerticalAlignment="Bottom" HorizontalAlignment="Left" 
+                                Click="AddUser"/>
+                        <Button Name="UpdateUserButton"  Content="Оновити" Width="100" Height="30" IsEnabled="False"  VerticalAlignment="Bottom" HorizontalAlignment="Center" 
+                                Click="UpdateUser"/>
+                        <Button Name="DeleteUserButton" Content="Видалити" IsEnabled="False"  Width="100" Height="30" VerticalAlignment="Bottom" HorizontalAlignment="Right"
+                                Click="DeleteUser"/>
+                    </Grid>
+                </Grid>
+            </TabItem>
+            <TabItem Header="Клієнти">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="35"></RowDefinition>
+                    </Grid.RowDefinitions>
+                    <Grid>
+                        <DataGrid SelectionChanged="CustomersGrid_SelectionChanged" IsReadOnly="True" Name="CustomersGrid" AutoGenerateColumns="True" />
+                    </Grid>
+                    <Grid Grid.Row="1">
+                        <Button  Content="Додати" Width="100" Height="30" VerticalAlignment="Bottom" HorizontalAlignment="Left" 
+                                Click="AddCustomer"/>
+                        <Button IsEnabled="False"  Name="UpdateCustomerButton"  Content="Оновити" Width="100" Height="30" VerticalAlignment="Bottom" HorizontalAlignment="Center" 
+                                Click="UpdateCustomer"/>
+                        <Button IsEnabled="False"  Name="DeleteCustomerButton"  Content="Видалити" Width="100" Height="30" VerticalAlignment="Bottom" HorizontalAlignment="Right" 
+                                Click="DeleteCustomer"/>
+                    </Grid>
+                </Grid>
+            </TabItem>
+            <TabItem Header="Замовлення">
+               <Grid>
+                   <Grid.RowDefinitions>
+                       <RowDefinition Height="*"/>
+                       <RowDefinition Height="35"></RowDefinition>
+                   </Grid.RowDefinitions>
+                   <Grid>
+                       <DataGrid IsReadOnly="True" Name="OrdersGrid" AutoGenerateColumns="True" SelectionChanged="OrdersGrid_SelectionChanged"/>
+                    </Grid>
+                   <Grid Grid.Row="1">
+                       <Button Content="Додати" Width="100" Height="30" VerticalAlignment="Bottom" HorizontalAlignment="Left" 
+                               Click="AddOrder"/>
+                        <Button Name="UpdateOrderButton"  IsEnabled="False"  Content="Оновити" Width="100" Height="30" VerticalAlignment="Bottom" HorizontalAlignment="Center" 
+                               Click="UpdateOrder"/>
+                       <Button Name="DeleteOrderButton"  IsEnabled="False"  Content="Видалити" Width="100" Height="30" VerticalAlignment="Bottom" HorizontalAlignment="Right" 
+                               Click="DeleteOrder"/>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Журнал подій">
+                <DataGrid IsReadOnly="True" Name="LogsGrid" AutoGenerateColumns="True" />
+            </TabItem>
+        </TabControl>
+        <Button Content="Оновити" Width="100" Height="30" VerticalAlignment="Bottom" HorizontalAlignment="Right" Margin="0,0,20,20"
+                Click="RefreshData"/>
+    </Grid>
+</Window>
