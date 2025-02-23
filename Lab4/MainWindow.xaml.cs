@@ -14,17 +14,55 @@ using System.Windows.Shapes;
 
 namespace Lab4
 {
-    /// <summary>
-    /// Interaction logic for MainWindow.xaml
-    /// </summary>
+
+    public enum Role
+    {
+        Admin,
+        Manager,
+        None
+    }
     public partial class MainWindow : Window
     {
         DataBase db = new DataBase();
+        private Role Role = Lab4.Role.None;
+        public int UserId { get; set; }
+        public delegate void LogEventHandler(object sender, int userId, string action);
+        public event LogEventHandler LogEvent;
+
         public MainWindow()
         {
             InitializeComponent();
+            LogEvent += (sender, userId, action) => AddLog(userId, action);
+            var login = new LoginWindow();
+            login.ShowDialog();
+            Role = login.Role;
+            if (login.IsActive == false && Role == Role.None)
+            {
+                this.Close();
+            }
+
+            this.Title = login.ActiveUser;
+            UserId = login.UserId;
+            if (Role == Role.Manager)
+            {
+                UsersTab.IsEnabled = false;
+                LogsTab.IsEnabled = false;
+                ClientsTab.IsSelected = true;
+                CustomersGrid.SelectionChanged -= CustomersGrid_SelectionChanged;
+                OrdersGrid.SelectionChanged -= OrdersGrid_SelectionChanged;
+
+            }
         }
 
+        private void OnLogEvent(int userId, string action)
+        {
+            LogEvent?.Invoke(this, userId, action);
+        }
+
+        private void AddLog(int userId, string action)
+        {
+            db.AddLog(userId, action);
+        }
         private void UsersGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             UpdateUserButton.IsEnabled = true;
@@ -43,10 +81,14 @@ namespace Lab4
 
         private void LoadData()
         {
-            db.LoadTable("Users", UsersGrid);
-            db.LoadTable("Customers", CustomersGrid);
-            db.LoadTable("Orders", OrdersGrid);
-            db.LoadTable("Logs", LogsGrid);
+            var table = db.LoadTable("Users");
+            UsersGrid.ItemsSource = table.DefaultView;
+            table = db.LoadTable("Customers");
+            CustomersGrid.ItemsSource = table.DefaultView;
+            table = db.LoadTable("Orders");
+            OrdersGrid.ItemsSource = table.DefaultView;
+            table = db.LoadTable("Logs");
+            LogsGrid.ItemsSource = table.DefaultView;
         }
         private void RefreshData(object sender, RoutedEventArgs e)
         {
@@ -62,7 +104,9 @@ namespace Lab4
                 string password = dialog.Password;
                 string role = dialog.Role;
                 db.AddUser(username, password, role);
-                db.LoadTable("Users", UsersGrid);
+                var table = db.LoadTable("Users");
+                UsersGrid.ItemsSource = table.DefaultView;
+                OnLogEvent(UserId, "Added user");
             }
         }
         private void UpdateUser(object sender, RoutedEventArgs e)
@@ -75,8 +119,10 @@ namespace Lab4
                 var password = dialog.Password;
                 var role = dialog.Role;
                 db.UpdateUser(id, username, password, role);
-                db.LoadTable("Users", UsersGrid);
+                var table = db.LoadTable("Users");
+                UsersGrid.ItemsSource = table.DefaultView;
                 UnselectUser();
+                OnLogEvent(UserId, "Updated user");
             }
         }
         private void DeleteUser(object sender, RoutedEventArgs e)
@@ -86,8 +132,10 @@ namespace Lab4
             {
                 var id = int.Parse((UsersGrid.SelectedItem as DataRowView)["Id"].ToString());
                 db.DeleteUser(id);
-                db.LoadTable("Users", UsersGrid);
+                var table = db.LoadTable("Users");
+                UsersGrid.ItemsSource = table.DefaultView;
                 UnselectUser();
+                OnLogEvent(UserId, "Deleted user");
             }
         }
 
@@ -114,7 +162,9 @@ namespace Lab4
                 string phone = dialog.Phone;
                 string email = dialog.Email;
                 db.AddCustomer(name, phone, email);
-                db.LoadTable("Customers", CustomersGrid);
+                var table = db.LoadTable("Customers");
+                CustomersGrid.ItemsSource = table.DefaultView;
+                OnLogEvent(UserId, "Added customer");
             }
         }
         private void UpdateCustomer(object sender, RoutedEventArgs e)
@@ -127,8 +177,10 @@ namespace Lab4
                 var phone = dialog.Phone;
                 var email = dialog.Email;
                 db.UpdateCustomer(id, name, phone, email);
-                db.LoadTable("Customers", CustomersGrid);
+                var table = db.LoadTable("Customers");
+                CustomersGrid.ItemsSource = table.DefaultView;
                 UnselectCustomer();
+                OnLogEvent(UserId, "Updated customer");
             }
         }
         private void DeleteCustomer(object sender, RoutedEventArgs e)
@@ -138,8 +190,10 @@ namespace Lab4
             {
                 var id = int.Parse((CustomersGrid.SelectedItem as DataRowView)["Id"].ToString());
                 db.DeleteCustomer(id);
-                db.LoadTable("Customers", CustomersGrid);
+                var table = db.LoadTable("Customers");
+                CustomersGrid.ItemsSource = table.DefaultView;
                 UnselectCustomer();
+                OnLogEvent(UserId, "Deleted customer");
             }
         }
         private CustomersInputWindow SelectCustomer()
@@ -168,7 +222,9 @@ namespace Lab4
                 string status = dialog.Status;
                 double totalPrice = dialog.TotalPrice;
                 db.AddOrder(customerId, item, orderDate, status, totalPrice);
-                db.LoadTable("Orders", OrdersGrid);
+                var table = db.LoadTable("Orders");
+                OrdersGrid.ItemsSource = table.DefaultView;
+                OnLogEvent(UserId, "Added order");
             }
         }
         
@@ -184,8 +240,10 @@ namespace Lab4
                 string status = dialog.Status;
                 double totalPrice = dialog.TotalPrice;
                 db.UpdateOrder(id, customerId, item, orderDate, status, totalPrice);
-                db.LoadTable("Orders", OrdersGrid);
+                var table = db.LoadTable("Orders");
+                OrdersGrid.ItemsSource = table.DefaultView;
                 UnselectOrder();
+                OnLogEvent(UserId, "Updated order");
             }
         }
         private void DeleteOrder(object sender, RoutedEventArgs e)
@@ -195,8 +253,10 @@ namespace Lab4
             {
                 var id = int.Parse((OrdersGrid.SelectedItem as DataRowView)["Id"].ToString());
                 db.DeleteOrder(id);
-                db.LoadTable("Orders", OrdersGrid);
+                var table = db.LoadTable("Orders");
+                OrdersGrid.ItemsSource = table.DefaultView;
                 UnselectOrder();
+                OnLogEvent(UserId, "Deleted order");
             }
         }
         private OrdersInputWindow SelectOrder()

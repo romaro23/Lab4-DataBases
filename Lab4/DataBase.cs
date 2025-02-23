@@ -14,7 +14,7 @@ namespace Lab4
     public class DataBase
     {
         SqlConnection _sqlConnection = new SqlConnection(@"Data Source=Romaro-PC\SQLEXPRESS;Initial Catalog=Lab4;Integrated Security=True;TrustServerCertificate=True");
-        public void LoadTable(string tableName, DataGrid grid)
+        public DataTable LoadTable(string tableName)
         {
             try
             {
@@ -23,12 +23,13 @@ namespace Lab4
                 SqlDataAdapter adapter = new SqlDataAdapter(command);
                 DataTable dataTable = new DataTable();
                 adapter.Fill(dataTable);
-                grid.ItemsSource = dataTable.DefaultView;
                 CloseConnection();
+                return dataTable;
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Помилка завантаження {tableName}: {ex.Message}");
+                return null;
             }
         }
 
@@ -48,6 +49,24 @@ namespace Lab4
             {
                 MessageBox.Show($"Помилка завантаження Orders: {ex.Message}");
                 return null;
+            }
+        }
+
+        public void AddLog(int userId, string action)
+        {
+            try
+            {
+                OpenConnection();
+                SqlCommand command = new SqlCommand("INSERT INTO Logs (UserId, Action, Timestamp) VALUES (@userId, @action, @timestamp)", _sqlConnection);
+                command.Parameters.AddWithValue("@userId", userId);
+                command.Parameters.AddWithValue("@action", action);
+                command.Parameters.AddWithValue("@timestamp", DateTime.Now);
+                command.ExecuteNonQuery();
+                CloseConnection();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Помилка додавання: {ex.Message}");
             }
         }
         public void AddUser(string username, string password, string role)

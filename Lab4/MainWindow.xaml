@@ -5,17 +5,17 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Lab4"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="" Height="450" Width="800">
     <Grid>
-        <TabControl HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10">
-            <TabItem Header="Користувачі">
+        <TabControl Name="Tabs"  HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10">
+            <TabItem Name="UsersTab" Header="Користувачі">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="35"></RowDefinition>
                     </Grid.RowDefinitions>
                     <Grid VerticalAlignment="Top">
-                        <DataGrid  IsReadOnly="True" Name="UsersGrid" AutoGenerateColumns="True" SelectionChanged="UsersGrid_SelectionChanged" />
+                        <DataGrid  IsReadOnly="True" Name="UsersGrid" SelectionMode="Single"  AutoGenerateColumns="True" SelectionChanged="UsersGrid_SelectionChanged" />
                     </Grid>
                     <Grid Grid.Row="1">
                         <Button Content="Додати" Width="100" Height="30" VerticalAlignment="Bottom" HorizontalAlignment="Left" 
@@ -27,14 +27,14 @@
                     </Grid>
                 </Grid>
             </TabItem>
-            <TabItem Header="Клієнти">
+            <TabItem Name="ClientsTab" Header="Клієнти">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="35"></RowDefinition>
                     </Grid.RowDefinitions>
                     <Grid>
-                        <DataGrid SelectionChanged="CustomersGrid_SelectionChanged" IsReadOnly="True" Name="CustomersGrid" AutoGenerateColumns="True" />
+                        <DataGrid SelectionChanged="CustomersGrid_SelectionChanged" SelectionMode="Single"  IsReadOnly="True" Name="CustomersGrid" AutoGenerateColumns="True" />
                     </Grid>
                     <Grid Grid.Row="1">
                         <Button  Content="Додати" Width="100" Height="30" VerticalAlignment="Bottom" HorizontalAlignment="Left" 
@@ -53,7 +53,7 @@
                        <RowDefinition Height="35"></RowDefinition>
                    </Grid.RowDefinitions>
                    <Grid>
-                       <DataGrid IsReadOnly="True" Name="OrdersGrid" AutoGenerateColumns="True" SelectionChanged="OrdersGrid_SelectionChanged"/>
+                        <DataGrid IsReadOnly="True" Name="OrdersGrid" SelectionMode="Single"  AutoGenerateColumns="True" SelectionChanged="OrdersGrid_SelectionChanged"/>
                     </Grid>
                    <Grid Grid.Row="1">
                        <Button Content="Додати" Width="100" Height="30" VerticalAlignment="Bottom" HorizontalAlignment="Left" 
@@ -66,8 +66,8 @@
                 </Grid>
             </TabItem>
 
-            <TabItem Header="Журнал подій">
-                <DataGrid IsReadOnly="True" Name="LogsGrid" AutoGenerateColumns="True" />
+            <TabItem Name="LogsTab" Header="Журнал подій">
+                <DataGrid IsReadOnly="True" Name="LogsGrid" SelectionMode="Single"  AutoGenerateColumns="True" />
             </TabItem>
         </TabControl>
         <Button Content="Оновити" Width="100" Height="30" VerticalAlignment="Bottom" HorizontalAlignment="Right" Margin="0,0,20,20"
