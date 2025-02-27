@@ -71,8 +71,7 @@ namespace Lab4
                 string.IsNullOrWhiteSpace(TotalPriceTextBox.Text) ||
                 CustomerIdComboBox.SelectedItem == null || OrderDatePicker.SelectedDate == null || StatusComboBox.SelectedItem == null)
             {
-                MessageBox.Show("Будь ласка, заповніть всі поля.");
-                return;
+                
             }
 
             CustomerId = int.Parse(CustomerIdComboBox.SelectedItem.ToString());

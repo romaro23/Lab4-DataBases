@@ -1,5 +1,7 @@
 ﻿using System.Data;
 using System.Globalization;
+using System.IO;
+using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Windows;
@@ -11,6 +13,9 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using Azure;
+using Newtonsoft.Json;
+using ScottPlot;
 
 namespace Lab4
 {
@@ -23,12 +28,23 @@ namespace Lab4
     }
     public partial class MainWindow : Window
     {
-        DataBase db = new DataBase();
         private Role Role = Lab4.Role.None;
         public int UserId { get; set; }
         public delegate void LogEventHandler(object sender, int userId, string action);
         public event LogEventHandler LogEvent;
-
+        public Dictionary<string, string> Queries = new Dictionary<string, string>
+        {
+            {"Customers with 'gmail.com'", "SELECT * FROM Customers WHERE Email LIKE '%gmail.com'"},
+            {"Count of orders for a customer", "SELECT c.FullName AS Name, COUNT(o.Item) AS OrdersCount From Customers c LEFT JOIN Orders o ON c.Id = o.CustomerId GROUP BY c.FullName"},
+            {"Added orders actions", "SELECT * FROM Logs WHERE Action LIKE '%Added order%'"},
+            {"Completed orders for a customer", "SELECT c.FullName AS Name, Count(o.Item) AS OrdersCount, o.Status AS Status From Customers c JOIN Orders o ON c.ID = o.CustomerId WHERE o.Status = 'Completed' GROUP By c.FullName, o.Status"},
+            {"Pending orders", "SELECT * From Orders WHERE Status = 'Pending'"},
+            {"Items with price > 3000", "SELECT DISTINCT o.Item AS Item, o.TotalPrice AS Price From Orders o WHERE o.TotalPrice > 3000"},
+            {"Total price for a customer", "SELECT c.FullName AS Name, SUM(o.TotalPrice) AS TotalPrice From Customers c JOIN Orders o ON c.Id = o.CustomerId GROUP BY c.FullName"},
+            {"Orders in date range", "SELECT * FROM Orders WHERE OrderDate BETWEEN '2025.01.01' AND '2025.12.12'"},
+            {"Cancelled orders > 5000", "SELECT * FROM Orders WHERE Status = 'Cancelled' AND TotalPrice > 5000"},
+            {"Total price for completed orders", "SELECT o.Status AS Status, SUM(o.TotalPrice) AS TotalPrice FROM Orders o WHERE Status = 'Completed' GROUP BY o.Status"}
+        };
         public MainWindow()
         {
             InitializeComponent();
@@ -53,15 +69,15 @@ namespace Lab4
 
             }
         }
-
         private void OnLogEvent(int userId, string action)
         {
             LogEvent?.Invoke(this, userId, action);
         }
 
-        private void AddLog(int userId, string action)
+        private async void AddLog(int userId, string action)
         {
-            db.AddLog(userId, action);
+            string request = $"ADD_LOG|{userId}|{action}";
+            await SendRequest(request);
         }
         private void UsersGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -72,6 +88,10 @@ namespace Lab4
         {
             UpdateCustomerButton.IsEnabled = true;
             DeleteCustomerButton.IsEnabled = true;
+            var selectedCustomer = CustomersGrid.SelectedItem as DataRowView;
+            var id = int.Parse(selectedCustomer["Id"].ToString());
+            string query = $"SELECT o.OrderDate AS OrderDate, o.TotalPrice AS TotalPrice FROM Orders o WHERE o.CustomerId = {id}";
+            CreateOrdersPlot(query);
         }
         private void OrdersGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -79,23 +99,115 @@ namespace Lab4
             DeleteOrderButton.IsEnabled = true;
         }
 
-        private void LoadData()
+        private async void CreateOrdersPlot(string query)
         {
-            var table = db.LoadTable("Users");
+            OrdersPlot.Plot.Clear();
+            var table = await GetTable($"QUERY|{query}");
+            var orderDates = new List<DateTime>();
+            var orderPrices = new List<double>();
+            foreach (DataRow row in table.Rows)
+            {
+                orderDates.Add(Convert.ToDateTime(row["OrderDate"]));
+                orderPrices.Add(Convert.ToDouble(row["TotalPrice"]));
+            }
+            OrdersPlot.Plot.Add.Scatter(orderDates.Select(d => d.ToOADate()).ToArray(), orderPrices.ToArray());
+            OrdersPlot.Plot.Axes.DateTimeTicksBottom();
+            OrdersPlot.Plot.YLabel("Total Price");
+            OrdersPlot.Plot.XLabel("Order Date");
+            OrdersPlot.Plot.Axes.Margins(0, 0);
+            OrdersPlot.Refresh();
+            GenerateReport(table);
+        }
+
+        private async void GenerateReport(DataTable table)
+        {
+            string directoryPath = @"D:\source\repos\CSharp\University\DataBases\Lab4\Lab4";
+            string baseFileName = "Report.csv";
+            string filePath = System.IO.Path.Combine(directoryPath, baseFileName);
+
+            int counter = 1;
+
+            while (File.Exists(filePath))
+            {
+                string newFileName = $"Report ({counter}).csv";
+                filePath = System.IO.Path.Combine(directoryPath, newFileName);
+                counter++;
+            }
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine(string.Join(",", table.Columns.Cast<DataColumn>().Select(col => col.ColumnName)));
+            foreach (DataRow row in table.Rows)
+            {
+                sb.AppendLine(string.Join(",", row.ItemArray.Select(field => field.ToString())));
+            }
+
+            File.WriteAllText(filePath, sb.ToString());
+        }
+        private async void LoadData()
+        {
+            var table = await GetTable("LOAD_TABLE|Users");
             UsersGrid.ItemsSource = table.DefaultView;
-            table = db.LoadTable("Customers");
+            table = await GetTable("LOAD_TABLE|Customers");
             CustomersGrid.ItemsSource = table.DefaultView;
-            table = db.LoadTable("Orders");
+            table = await GetTable("LOAD_TABLE|Orders");
             OrdersGrid.ItemsSource = table.DefaultView;
-            table = db.LoadTable("Logs");
+            table = await GetTable("LOAD_TABLE|Logs");
             LogsGrid.ItemsSource = table.DefaultView;
         }
         private void RefreshData(object sender, RoutedEventArgs e)
         {
             LoadData();
         }
-        
-        private void AddUser(object sender, RoutedEventArgs e)
+
+        private async Task<string> SendRequest(string request)
+        {
+            using (TcpClient client = new TcpClient("127.0.0.1", 5000))
+            {
+                NetworkStream stream = client.GetStream();
+                byte[] requestData = Encoding.UTF8.GetBytes(request);
+                await stream.WriteAsync(requestData, 0, requestData.Length);
+
+                byte[] responseBuffer = new byte[1024];
+                int bytesRead = await stream.ReadAsync(responseBuffer, 0, responseBuffer.Length);
+                string response = Encoding.UTF8.GetString(responseBuffer, 0, bytesRead);
+                if (response != "")
+                {
+                    MessageBox.Show(response);
+                }
+
+                return response;
+            }
+        }
+        private async Task<DataTable> GetTable(string request)
+        {
+            using (TcpClient client = new TcpClient("127.0.0.1", 5000))
+            {
+                NetworkStream stream = client.GetStream();
+                byte[] requestData = Encoding.UTF8.GetBytes(request);
+                await stream.WriteAsync(requestData, 0, requestData.Length);
+                byte[] responseBuffer = new byte[4096];
+                StringBuilder fullResponse = new StringBuilder();
+
+                int bytesRead;
+                do
+                {
+                    bytesRead = await stream.ReadAsync(responseBuffer, 0, responseBuffer.Length);
+                    fullResponse.Append(Encoding.UTF8.GetString(responseBuffer, 0, bytesRead));
+                }
+                while (bytesRead == responseBuffer.Length); // Читаємо поки є дані
+
+                string response = fullResponse.ToString();
+                var responseParts = response.Split('|');
+                DataTable table = JsonConvert.DeserializeObject<DataTable>(responseParts[0]);
+
+                if (responseParts.Length > 1 && !string.IsNullOrEmpty(responseParts[1]))
+                {
+                    MessageBox.Show(responseParts[1]);
+                }
+
+                return table;
+            }
+        }
+        private async void AddUser(object sender, RoutedEventArgs e)
         {
             var dialog = new UsersInputWindow();
             if (dialog.ShowDialog() == true)
@@ -103,13 +215,17 @@ namespace Lab4
                 string username = dialog.Username;
                 string password = dialog.Password;
                 string role = dialog.Role;
-                db.AddUser(username, password, role);
-                var table = db.LoadTable("Users");
-                UsersGrid.ItemsSource = table.DefaultView;
-                OnLogEvent(UserId, "Added user");
+                string request = $"ADD_USER|{username}|{password}|{role}";
+                string response = await SendRequest(request);
+                if (response.Contains("додано"))
+                {
+                    var table = await GetTable("LOAD_TABLE|Users");
+                    UsersGrid.ItemsSource = table.DefaultView;
+                    OnLogEvent(UserId, "Added user");
+                }
             }
         }
-        private void UpdateUser(object sender, RoutedEventArgs e)
+        private async void UpdateUser(object sender, RoutedEventArgs e)
         {
             var dialog = SelectUser();
             if (dialog.ShowDialog() == true)
@@ -118,24 +234,33 @@ namespace Lab4
                 var username = dialog.Username;
                 var password = dialog.Password;
                 var role = dialog.Role;
-                db.UpdateUser(id, username, password, role);
-                var table = db.LoadTable("Users");
-                UsersGrid.ItemsSource = table.DefaultView;
-                UnselectUser();
-                OnLogEvent(UserId, "Updated user");
+                string request = $"UPDATE_USER|{id}|{username}|{password}|{role}";
+                string response = await SendRequest(request);
+                if (response.Contains("оновлено"))
+                {
+                    var table = await GetTable("LOAD_TABLE|Users");
+                    UsersGrid.ItemsSource = table.DefaultView;
+                    UnselectUser();
+                    OnLogEvent(UserId, "Updated user");
+                }
+                
             }
         }
-        private void DeleteUser(object sender, RoutedEventArgs e)
+        private async void DeleteUser(object sender, RoutedEventArgs e)
         {
             var dialog = SelectUser();
             if (dialog.ShowDialog() == true)
             {
                 var id = int.Parse((UsersGrid.SelectedItem as DataRowView)["Id"].ToString());
-                db.DeleteUser(id);
-                var table = db.LoadTable("Users");
-                UsersGrid.ItemsSource = table.DefaultView;
-                UnselectUser();
-                OnLogEvent(UserId, "Deleted user");
+                string request = $"DELETE_USER|{id}";
+                string response = await SendRequest(request);
+                if (response.Contains("видалено"))
+                {
+                    var table = await GetTable("LOAD_TABLE|Users");
+                    UsersGrid.ItemsSource = table.DefaultView;
+                    UnselectUser();
+                    OnLogEvent(UserId, "Deleted user");
+                }
             }
         }
 
@@ -153,7 +278,7 @@ namespace Lab4
             UpdateUserButton.IsEnabled = false;
             DeleteUserButton.IsEnabled = false;
         }
-        private void AddCustomer(object sender, RoutedEventArgs e)
+        private async void AddCustomer(object sender, RoutedEventArgs e)
         {
             var dialog = new CustomersInputWindow();
             if (dialog.ShowDialog() == true)
@@ -161,13 +286,18 @@ namespace Lab4
                 string name = dialog.Name;
                 string phone = dialog.Phone;
                 string email = dialog.Email;
-                db.AddCustomer(name, phone, email);
-                var table = db.LoadTable("Customers");
-                CustomersGrid.ItemsSource = table.DefaultView;
-                OnLogEvent(UserId, "Added customer");
+                string request = $"ADD_CUSTOMER|{name}|{phone}|{email}";
+                string response = await SendRequest(request);
+                if (response.Contains("додано"))
+                {
+                    var table = await GetTable("LOAD_TABLE|Customers");
+                    CustomersGrid.ItemsSource = table.DefaultView;
+                    OnLogEvent(UserId, "Added customer");
+                }
+                
             }
         }
-        private void UpdateCustomer(object sender, RoutedEventArgs e)
+        private async void UpdateCustomer(object sender, RoutedEventArgs e)
         {
             var dialog = SelectCustomer();
             if (dialog.ShowDialog() == true)
@@ -176,24 +306,32 @@ namespace Lab4
                 var name = dialog.Name;
                 var phone = dialog.Phone;
                 var email = dialog.Email;
-                db.UpdateCustomer(id, name, phone, email);
-                var table = db.LoadTable("Customers");
-                CustomersGrid.ItemsSource = table.DefaultView;
-                UnselectCustomer();
-                OnLogEvent(UserId, "Updated customer");
+                string request = $"UPDATE_CUSTOMER|{id}|{name}|{phone}|{email}";
+                string response = await SendRequest(request);
+                if (response.Contains("оновлено"))
+                {
+                    var table = await GetTable("LOAD_TABLE|Customers");
+                    CustomersGrid.ItemsSource = table.DefaultView;
+                    UnselectCustomer();
+                    OnLogEvent(UserId, "Updated customer");
+                }
             }
         }
-        private void DeleteCustomer(object sender, RoutedEventArgs e)
+        private async void DeleteCustomer(object sender, RoutedEventArgs e)
         {
             var dialog = SelectCustomer();
             if (dialog.ShowDialog() == true)
             {
                 var id = int.Parse((CustomersGrid.SelectedItem as DataRowView)["Id"].ToString());
-                db.DeleteCustomer(id);
-                var table = db.LoadTable("Customers");
-                CustomersGrid.ItemsSource = table.DefaultView;
-                UnselectCustomer();
-                OnLogEvent(UserId, "Deleted customer");
+                string request = $"DELETE_CUSTOMER|{id}";
+                string response = await SendRequest(request);
+                if (response.Contains("видалено"))
+                {
+                    var table = await GetTable("LOAD_TABLE|Customers");
+                    CustomersGrid.ItemsSource = table.DefaultView;
+                    UnselectCustomer();
+                    OnLogEvent(UserId, "Deleted customer");
+                }
             }
         }
         private CustomersInputWindow SelectCustomer()
@@ -209,9 +347,10 @@ namespace Lab4
             UpdateCustomerButton.IsEnabled = false;
             DeleteCustomerButton.IsEnabled = false;
         }
-        private void AddOrder(object sender, RoutedEventArgs e)
+        private async void AddOrder(object sender, RoutedEventArgs e)
         {
-            var ids = db.GetCustomersIds();
+            var customers = await GetTable("LOAD_TABLE|Orders");
+            DataTable ids = customers.DefaultView.ToTable(false, "CustomerId");
             var dialog = new OrdersInputWindow();
             dialog.FeelCustomersId(ids);
             if (dialog.ShowDialog() == true)
@@ -221,16 +360,20 @@ namespace Lab4
                 DateTime? orderDate = dialog.OrderDate;
                 string status = dialog.Status;
                 double totalPrice = dialog.TotalPrice;
-                db.AddOrder(customerId, item, orderDate, status, totalPrice);
-                var table = db.LoadTable("Orders");
-                OrdersGrid.ItemsSource = table.DefaultView;
-                OnLogEvent(UserId, "Added order");
+                string request = $"ADD_ORDER|{customerId}|{item}|{orderDate}|{status}|{totalPrice}";
+                string response = await SendRequest(request);
+                if (response.Contains("додано"))
+                {
+                    var table = await GetTable("LOAD_TABLE|Orders");
+                    OrdersGrid.ItemsSource = table.DefaultView;
+                    OnLogEvent(UserId, "Added order");
+                }
             }
         }
         
-        private void UpdateOrder(object sender, RoutedEventArgs e)
+        private async void UpdateOrder(object sender, RoutedEventArgs e)
         {
-            var dialog = SelectOrder();
+            var dialog = await SelectOrder();
             if (dialog.ShowDialog() == true)
             {
                 var id = int.Parse((OrdersGrid.SelectedItem as DataRowView)["Id"].ToString());
@@ -239,27 +382,35 @@ namespace Lab4
                 DateTime? orderDate = dialog.OrderDate;
                 string status = dialog.Status;
                 double totalPrice = dialog.TotalPrice;
-                db.UpdateOrder(id, customerId, item, orderDate, status, totalPrice);
-                var table = db.LoadTable("Orders");
-                OrdersGrid.ItemsSource = table.DefaultView;
-                UnselectOrder();
-                OnLogEvent(UserId, "Updated order");
+                string request = $"UPDATE_ORDER|{id}|{customerId}|{item}|{orderDate}|{status}|{totalPrice}";
+                string response = await SendRequest(request);
+                if (response.Contains("оновлено"))
+                {
+                    var table = await GetTable("LOAD_TABLE|Orders");
+                    OrdersGrid.ItemsSource = table.DefaultView;
+                    UnselectOrder();
+                    OnLogEvent(UserId, "Updated order");
+                }
             }
         }
-        private void DeleteOrder(object sender, RoutedEventArgs e)
+        private async void DeleteOrder(object sender, RoutedEventArgs e)
         {
-            var dialog = SelectOrder();
+            var dialog = await SelectOrder();
             if (dialog.ShowDialog() == true)
             {
                 var id = int.Parse((OrdersGrid.SelectedItem as DataRowView)["Id"].ToString());
-                db.DeleteOrder(id);
-                var table = db.LoadTable("Orders");
-                OrdersGrid.ItemsSource = table.DefaultView;
-                UnselectOrder();
-                OnLogEvent(UserId, "Deleted order");
+                string request = $"DELETE_ORDER|{id}";
+                string response = await SendRequest(request);
+                if (response.Contains("видалено"))
+                {
+                    var table = await GetTable("LOAD_TABLE|Orders");
+                    OrdersGrid.ItemsSource = table.DefaultView;
+                    UnselectOrder();
+                    OnLogEvent(UserId, "Deleted order");
+                }
             }
         }
-        private OrdersInputWindow SelectOrder()
+        private async Task<OrdersInputWindow> SelectOrder()
         {
             var selectedOrder = OrdersGrid.SelectedItem as DataRowView;
             var customerId = int.Parse(selectedOrder["CustomerId"].ToString());
@@ -267,13 +418,29 @@ namespace Lab4
             var orderDate = DateTime.Parse(selectedOrder["OrderDate"].ToString());
             var status = selectedOrder["Status"].ToString();
             var totalPrice = double.Parse(selectedOrder["TotalPrice"].ToString());
-            var ids = db.GetCustomersIds();
+            var customers = await GetTable("LOAD_TABLE|Orders");
+            DataTable ids = customers.DefaultView.ToTable(false, "CustomerId");
             return new OrdersInputWindow(customerId, item, orderDate, status, totalPrice, ids);
         }
         private void UnselectOrder()
         {
             UpdateCustomerButton.IsEnabled = false;
             DeleteCustomerButton.IsEnabled = false;
+        }
+
+        private async void DoQuery(object sender, RoutedEventArgs e)
+        {
+            var dialog = new QueriesWindow(Queries.Keys.ToList());
+            if (dialog.ShowDialog() == true)
+            {
+                var query = dialog.Query;
+                var table = await GetTable($"QUERY|{Queries[query]}");
+                QueriesGrid.ItemsSource = table.DefaultView;
+                if (query.Contains("range"))
+                {
+                    GenerateReport(table);
+                }
+            }
         }
     }
 }
