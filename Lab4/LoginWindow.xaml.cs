@@ -28,7 +28,7 @@ namespace Lab4
             InitializeComponent();
         }
 
-        private void LoginButton_Click(object sender, RoutedEventArgs e)
+        private async void LoginButton_Click(object sender, RoutedEventArgs e)
         {
             if (string.IsNullOrWhiteSpace(UsernameTextBox.Text) ||
                 string.IsNullOrWhiteSpace(PasswordTextBox.Text))
@@ -38,8 +38,7 @@ namespace Lab4
             }
             var username = UsernameTextBox.Text;
             var password = PasswordTextBox.Text;
-            var db = new DataBase();
-            var users = db.LoadTable("Users");
+            var users = await MainWindow.GetTable("LOAD_TABLE|Users");
             DataRow? user = users.AsEnumerable().FirstOrDefault(row => row["Username"].ToString() == username);
             if (user != null)
             {

@@ -88,10 +88,13 @@ namespace Lab4
         {
             UpdateCustomerButton.IsEnabled = true;
             DeleteCustomerButton.IsEnabled = true;
+            PrintReport.IsEnabled = true;
             var selectedCustomer = CustomersGrid.SelectedItem as DataRowView;
-            var id = int.Parse(selectedCustomer["Id"].ToString());
-            string query = $"SELECT o.OrderDate AS OrderDate, o.TotalPrice AS TotalPrice FROM Orders o WHERE o.CustomerId = {id}";
-            CreateOrdersPlot(query);
+            if (selectedCustomer != null && int.TryParse(selectedCustomer["Id"].ToString(), out var id))
+            {
+                string query = $"SELECT o.OrderDate AS OrderDate, o.TotalPrice AS TotalPrice FROM Orders o WHERE o.CustomerId = {id}";
+                CreateOrdersPlot(query);
+            }
         }
         private void OrdersGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -119,9 +122,9 @@ namespace Lab4
             GenerateReport(table);
         }
 
-        private async void GenerateReport(DataTable table)
+        private void GenerateReport(DataTable table)
         {
-            string directoryPath = @"D:\source\repos\CSharp\University\DataBases\Lab4\Lab4";
+            string directoryPath = AppContext.BaseDirectory;
             string baseFileName = "Report.csv";
             string filePath = System.IO.Path.Combine(directoryPath, baseFileName);
 
@@ -141,6 +144,47 @@ namespace Lab4
             }
 
             File.WriteAllText(filePath, sb.ToString());
+            PrintDialog printDialog = new PrintDialog();
+            if (printDialog.ShowDialog() == true)
+            {
+                FlowDocument doc = new FlowDocument();
+                Table docTable = new Table();
+                doc.Blocks.Add(docTable);
+
+                for (int i = 0; i < table.Columns.Count; i++)
+                {
+                    docTable.Columns.Add(new TableColumn());
+                }
+
+                TableRowGroup headerGroup = new TableRowGroup();
+                docTable.RowGroups.Add(headerGroup);
+                TableRow headerRow = new TableRow();
+                headerGroup.Rows.Add(headerRow);
+
+                foreach (DataColumn column in table.Columns)
+                {
+                    headerRow.Cells.Add(new TableCell(new Paragraph(new Run(column.ColumnName)))
+                        { BorderThickness = new Thickness(1), BorderBrush = Brushes.Black, Padding = new Thickness(5) });
+                }
+
+                TableRowGroup dataGroup = new TableRowGroup();
+                docTable.RowGroups.Add(dataGroup);
+
+                foreach (DataRow row in table.Rows)
+                {
+                    TableRow dataRow = new TableRow();
+                    dataGroup.Rows.Add(dataRow);
+
+                    foreach (var cell in row.ItemArray)
+                    {
+                        dataRow.Cells.Add(new TableCell(new Paragraph(new Run(cell.ToString())))
+                            { BorderThickness = new Thickness(1), BorderBrush = Brushes.Black, Padding = new Thickness(5) });
+                    }
+                }
+
+                IDocumentPaginatorSource idpSource = doc;
+                printDialog.PrintDocument(idpSource.DocumentPaginator, "Друк таблиці");
+            }
         }
         private async void LoadData()
         {
@@ -160,7 +204,7 @@ namespace Lab4
 
         private async Task<string> SendRequest(string request)
         {
-            using (TcpClient client = new TcpClient("127.0.0.1", 5000))
+            using (TcpClient client = new TcpClient("192.168.0.103", 1433))
             {
                 NetworkStream stream = client.GetStream();
                 byte[] requestData = Encoding.UTF8.GetBytes(request);
@@ -177,9 +221,9 @@ namespace Lab4
                 return response;
             }
         }
-        private async Task<DataTable> GetTable(string request)
+        public static async Task<DataTable> GetTable(string request)
         {
-            using (TcpClient client = new TcpClient("127.0.0.1", 5000))
+            using (TcpClient client = new TcpClient("192.168.0.103", 1433))
             {
                 NetworkStream stream = client.GetStream();
                 byte[] requestData = Encoding.UTF8.GetBytes(request);
@@ -193,7 +237,7 @@ namespace Lab4
                     bytesRead = await stream.ReadAsync(responseBuffer, 0, responseBuffer.Length);
                     fullResponse.Append(Encoding.UTF8.GetString(responseBuffer, 0, bytesRead));
                 }
-                while (bytesRead == responseBuffer.Length); // Читаємо поки є дані
+                while (bytesRead == responseBuffer.Length);
 
                 string response = fullResponse.ToString();
                 var responseParts = response.Split('|');
@@ -441,6 +485,11 @@ namespace Lab4
                     GenerateReport(table);
                 }
             }
+        }
+
+        private void PrintReport_OnClick(object sender, RoutedEventArgs e)
+        {
+            
         }
     }
 }

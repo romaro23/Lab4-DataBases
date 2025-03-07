@@ -20,7 +20,7 @@
             <Button Grid.Column="1" Content="Виконати запит" Height="30" Margin="10,0,0,0" 
                     Click="DoQuery"/>
         </Grid>
-        <TabControl Name="Tabs"  HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10" MaxHeight="300">
+        <TabControl Width="500" Name="Tabs"  HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10" MaxHeight="300">
             <TabItem Name="UsersTab" Header="Користувачі">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -52,10 +52,15 @@
                     <Grid Grid.Row="1">
                         <Button  Content="Додати" Width="100" Height="30" VerticalAlignment="Bottom" HorizontalAlignment="Left" 
                                 Click="AddCustomer"/>
-                        <Button IsEnabled="False"  Name="UpdateCustomerButton"  Content="Оновити" Width="100" Height="30" VerticalAlignment="Bottom" HorizontalAlignment="Center" 
+                        <Button IsEnabled="False"  Name="UpdateCustomerButton"  Content="Оновити" Width="100" Height="30"
+                                Margin="0,0,100,0"  VerticalAlignment="Bottom" HorizontalAlignment="Center" 
                                 Click="UpdateCustomer"/>
-                        <Button IsEnabled="False"  Name="DeleteCustomerButton"  Content="Видалити" Width="100" Height="30" VerticalAlignment="Bottom" HorizontalAlignment="Right" 
+                        <Button IsEnabled="False" Name="DeleteCustomerButton"  Content="Видалити" Width="100" Height="30"
+                                Margin="0,0,120,0"      VerticalAlignment="Bottom" HorizontalAlignment="Right" 
                                 Click="DeleteCustomer"/>
+                        <Button IsEnabled="False"  Name="PrintReport"  Content="Друк" Width="100" Height="30" VerticalAlignment="Bottom"
+HorizontalAlignment="Right" 
+                          Click="PrintReport_OnClick"/>
                     </Grid>
                 </Grid>
             </TabItem>

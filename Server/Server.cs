@@ -18,7 +18,7 @@ namespace Server
         private static DataBase db = new DataBase();
         static async Task Main()
         {
-            TcpListener listener = new TcpListener(IPAddress.Any, 5000);
+            TcpListener listener = new TcpListener(IPAddress.Any, 1433);
             listener.Start();
             Console.WriteLine("Server started...");
 
